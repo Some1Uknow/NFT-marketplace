@@ -6,45 +6,53 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: false,
   },
   images: {
-    remotePatterns:
-      process.env.NODE_ENV === "development"
-        ? [
-            {
-              protocol: "https",
-              hostname: "**", // Allow all hostnames in development
-            },
-            {
-              protocol: "http",
-              hostname: "**",
-            },
-          ]
-        : [
-            // In production, specify allowed domains
-            {
-              protocol: "https",
-              hostname: "arweave.net",
-            },
-            {
-              protocol: "https",
-              hostname: "*.arweave.net",
-            },
-            {
-              protocol: "https",
-              hostname: "gateway.irys.xyz",
-            },
-            {
-              protocol: "https",
-              hostname: "*.irys.xyz",
-            },
-            {
-              protocol: "https",
-              hostname: "ipfs.io",
-            },
-            {
-              protocol: "https",
-              hostname: "*.ipfs.io",
-            },
-          ],
+    remotePatterns: [
+      // Arweave
+      {
+        protocol: "https",
+        hostname: "arweave.net",
+      },
+      {
+        protocol: "https",
+        hostname: "www.arweave.net",
+      },
+      // Irys/Bundlr gateways
+      {
+        protocol: "https",
+        hostname: "gateway.irys.xyz",
+      },
+      {
+        protocol: "https",
+        hostname: "node1.irys.xyz",
+      },
+      {
+        protocol: "https",
+        hostname: "node2.irys.xyz",
+      },
+      // IPFS
+      {
+        protocol: "https",
+        hostname: "ipfs.io",
+      },
+      {
+        protocol: "https",
+        hostname: "gateway.ipfs.io",
+      },
+      {
+        protocol: "https",
+        hostname: "cloudflare-ipfs.com",
+      },
+      // Common NFT storage providers
+      {
+        protocol: "https",
+        hostname: "nftstorage.link",
+      },
+      {
+        protocol: "https",
+        hostname: "*.nftstorage.link",
+      },
+    ],
+    unoptimized: process.env.NODE_ENV === "development", // Skip optimization in dev for faster builds
   },
 };
 
