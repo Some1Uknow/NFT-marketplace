@@ -6,13 +6,16 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-marketplace = "4id8BX4ERn3XWfPoxy1wZpGsWXnvpCBxmac1k3esXcWQ"
+marketplace = "DHpGDWHEo3ubcRBcuDBaMR3KDYGH1j9rcSsYxcMsqzA9"
+
+[programs.devnet]
+marketplace = "DHpGDWHEo3ubcRBcuDBaMR3KDYGH1j9rcSsYxcMsqzA9"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

@@ -2,6 +2,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program, web3, BN } from "@coral-xyz/anchor";
 import { Marketplace } from "../target/types/marketplace";
 import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo, getAssociatedTokenAddress, createAssociatedTokenAccount } from "@solana/spl-token";
+import { expect } from "chai";
 
 describe("NFT Marketplace", () => {
   // Configure the client to use the local cluster.
@@ -34,16 +35,14 @@ describe("NFT Marketplace", () => {
 
     // Initialize marketplace
     [marketplace] = web3.PublicKey.findProgramAddressSync(
-      [Buffer.from("marketplace")],
+      [Buffer.from("marketplace"), provider.publicKey.toBuffer()],
       program.programId
     );
 
     await program.methods
-      .initializeMarketplace()
+      .initializeMarketplace(250) // 2.5% fee
       .accounts({
-        marketplace,
         admin: provider.publicKey,
-        systemProgram: web3.SystemProgram.programId,
       })
       .rpc();
 
@@ -100,16 +99,11 @@ describe("NFT Marketplace", () => {
   it("Lists NFT for sale", async () => {
     await program.methods
       .listNft(price)
-      .accounts({
+      .accountsPartial({
         marketplace,
-        listing,
-        escrowTokenAccount,
         seller: seller.publicKey,
         sellerTokenAccount,
         nftMint,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: web3.SystemProgram.programId,
-        rent: web3.SYSVAR_RENT_PUBKEY,
       })
       .signers([seller])
       .rpc();
@@ -125,31 +119,16 @@ describe("NFT Marketplace", () => {
   });
 
   it("Buys NFT", async () => {
-    // Create buyer token account if it doesn't exist
-    try {
-      await createAssociatedTokenAccount(
-        connection,
-        buyer,
-        nftMint,
-        buyer.publicKey
-      );
-    } catch (error) {
-      // Account might already exist
-    }
+    // Note: Buyer ATA will be created automatically by init_if_needed
 
     await program.methods
       .buyNft()
-      .accounts({
+      .accountsPartial({
         marketplace,
-        listing,
-        escrowTokenAccount,
         buyer: buyer.publicKey,
         seller: seller.publicKey,
         admin: provider.publicKey,
-        buyerTokenAccount,
         nftMint,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: web3.SystemProgram.programId,
       })
       .signers([buyer])
       .rpc();
@@ -204,16 +183,11 @@ describe("NFT Marketplace", () => {
     // List the new NFT
     await program.methods
       .listNft(price)
-      .accounts({
+      .accountsPartial({
         marketplace,
-        listing: newListing,
-        escrowTokenAccount: newEscrowTokenAccount,
         seller: seller.publicKey,
         sellerTokenAccount: newSellerTokenAccount,
         nftMint: newNftMint,
-        tokenProgram: TOKEN_PROGRAM_ID,
-        systemProgram: web3.SystemProgram.programId,
-        rent: web3.SYSVAR_RENT_PUBKEY,
       })
       .signers([seller])
       .rpc();
@@ -221,14 +195,11 @@ describe("NFT Marketplace", () => {
     // Cancel the listing
     await program.methods
       .cancelListing()
-      .accounts({
+      .accountsPartial({
         marketplace,
-        listing: newListing,
-        escrowTokenAccount: newEscrowTokenAccount,
         seller: seller.publicKey,
         sellerTokenAccount: newSellerTokenAccount,
         nftMint: newNftMint,
-        tokenProgram: TOKEN_PROGRAM_ID,
       })
       .signers([seller])
       .rpc();

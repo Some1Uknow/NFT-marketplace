@@ -1,23 +1,49 @@
 #![allow(unexpected_cfgs)]
 
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer, CloseAccount};
 use anchor_spl::associated_token::AssociatedToken;
 
-declare_id!("4id8BX4ERn3XWfPoxy1wZpGsWXnvpCBxmac1k3esXcWQ");
+declare_id!("DHpGDWHEo3ubcRBcuDBaMR3KDYGH1j9rcSsYxcMsqzA9");
 
 #[program]
 pub mod marketplace {
     use super::*;
 
-    pub fn initialize_marketplace(ctx: Context<InitializeMarketplace>) -> Result<()> {
+    pub fn initialize_marketplace(ctx: Context<InitializeMarketplace>, fee_percentage: u16) -> Result<()> {
+        require!(fee_percentage <= 1000, ErrorCode::InvalidFeePercentage); // Max 10%
+        
         let marketplace = &mut ctx.accounts.marketplace;
         marketplace.admin = ctx.accounts.admin.key();
-        marketplace.fee_percentage = 250; // 2.5% fee
+        marketplace.fee_percentage = fee_percentage;
         marketplace.total_listings = 0;
         marketplace.bump = ctx.bumps.marketplace;
         
-        msg!("Marketplace initialized with admin: {:?}", marketplace.admin);
+        msg!("Marketplace initialized with admin: {:?}, fee: {}bps", marketplace.admin, fee_percentage);
+        Ok(())
+    }
+
+    pub fn update_fee(ctx: Context<UpdateMarketplace>, new_fee_percentage: u16) -> Result<()> {
+        require!(new_fee_percentage <= 1000, ErrorCode::InvalidFeePercentage); // Max 10%
+        
+        let marketplace = &mut ctx.accounts.marketplace;
+        marketplace.fee_percentage = new_fee_percentage;
+        
+        msg!("Marketplace fee updated to: {}bps", new_fee_percentage);
+        Ok(())
+    }
+
+    pub fn update_listing_price(ctx: Context<UpdateListingPrice>, new_price: u64) -> Result<()> {
+        require!(new_price > 0, ErrorCode::InvalidPrice);
+        
+        let listing = &mut ctx.accounts.listing;
+        require!(listing.is_active, ErrorCode::ListingNotActive);
+        require!(listing.seller == ctx.accounts.seller.key(), ErrorCode::Unauthorized);
+        
+        let old_price = listing.price;
+        listing.price = new_price;
+        
+        msg!("Listing price updated from {} to {}", old_price, new_price);
         Ok(())
     }
 
@@ -53,7 +79,7 @@ pub mod marketplace {
 
     pub fn buy_nft(ctx: Context<BuyNft>) -> Result<()> {
         let listing = &mut ctx.accounts.listing;
-        require!(listing.is_active, ErrorCode::ListingNotActive);
+        // Validation is now done in account constraints
         
         // Store values we need before borrowing marketplace mutably
         let price = listing.price;
@@ -124,6 +150,18 @@ pub mod marketplace {
         let signer_seeds = &[&marketplace_seeds[..]];
         token::transfer(cpi_ctx.with_signer(signer_seeds), 1)?;
         
+        // Close escrow token account and return rent to seller
+        let close_accounts = CloseAccount {
+            account: ctx.accounts.escrow_token_account.to_account_info(),
+            destination: ctx.accounts.seller.to_account_info(),
+            authority: ctx.accounts.marketplace.to_account_info(),
+        };
+        let close_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            close_accounts,
+        );
+        token::close_account(close_ctx.with_signer(signer_seeds))?;
+        
         // Update listing and marketplace
         listing.is_active = false;
         ctx.accounts.marketplace.total_listings = ctx.accounts.marketplace.total_listings
@@ -136,8 +174,7 @@ pub mod marketplace {
 
     pub fn cancel_listing(ctx: Context<CancelListing>) -> Result<()> {
         let listing = &mut ctx.accounts.listing;
-        require!(listing.is_active, ErrorCode::ListingNotActive);
-        require!(listing.seller == ctx.accounts.seller.key(), ErrorCode::Unauthorized);
+        // Validation is now done in account constraints
         
         // Store values before mutable borrow
         let nft_mint = listing.nft_mint;
@@ -160,6 +197,18 @@ pub mod marketplace {
         ];
         let signer_seeds = &[&marketplace_seeds[..]];
         token::transfer(cpi_ctx.with_signer(signer_seeds), 1)?;
+        
+        // Close escrow token account and return rent to seller
+        let close_accounts = CloseAccount {
+            account: ctx.accounts.escrow_token_account.to_account_info(),
+            destination: ctx.accounts.seller.to_account_info(),
+            authority: ctx.accounts.marketplace.to_account_info(),
+        };
+        let close_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            close_accounts,
+        );
+        token::close_account(close_ctx.with_signer(signer_seeds))?;
         
         // Update listing and marketplace
         listing.is_active = false;
@@ -238,7 +287,9 @@ pub struct BuyNft<'info> {
     #[account(
         mut,
         seeds = [b"listing", nft_mint.key().as_ref()],
-        bump = listing.bump
+        bump = listing.bump,
+        constraint = listing.is_active @ ErrorCode::ListingNotActive,
+        constraint = listing.seller == seller.key() @ ErrorCode::InvalidSeller
     )]
     pub listing: Account<'info, Listing>,
     #[account(
@@ -249,14 +300,21 @@ pub struct BuyNft<'info> {
     pub escrow_token_account: Account<'info, TokenAccount>,
     #[account(mut)]
     pub buyer: Signer<'info>,
-    #[account(mut)]
-    /// CHECK: This is safe because we're only transferring SOL to this account
-    pub seller: AccountInfo<'info>,
-    #[account(mut)]
-    /// CHECK: This is safe because we're only transferring SOL to this account  
-    pub admin: AccountInfo<'info>,
     #[account(
         mut,
+        constraint = seller.key() == listing.seller @ ErrorCode::InvalidSeller
+    )]
+    /// CHECK: Validated against listing.seller
+    pub seller: AccountInfo<'info>,
+    #[account(
+        mut,
+        constraint = admin.key() == marketplace.admin @ ErrorCode::InvalidAdmin
+    )]
+    /// CHECK: Validated against marketplace.admin
+    pub admin: AccountInfo<'info>,
+    #[account(
+        init_if_needed,
+        payer = buyer,
         associated_token::mint = nft_mint,
         associated_token::authority = buyer
     )]
@@ -278,7 +336,9 @@ pub struct CancelListing<'info> {
     #[account(
         mut,
         seeds = [b"listing", nft_mint.key().as_ref()],
-        bump = listing.bump
+        bump = listing.bump,
+        constraint = listing.is_active @ ErrorCode::ListingNotActive,
+        constraint = listing.seller == seller.key() @ ErrorCode::Unauthorized
     )]
     pub listing: Account<'info, Listing>,
     #[account(
@@ -298,6 +358,30 @@ pub struct CancelListing<'info> {
     pub nft_mint: Account<'info, Mint>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateMarketplace<'info> {
+    #[account(
+        mut,
+        seeds = [b"marketplace", admin.key().as_ref()],
+        bump = marketplace.bump,
+        has_one = admin @ ErrorCode::Unauthorized
+    )]
+    pub marketplace: Account<'info, Marketplace>,
+    pub admin: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateListingPrice<'info> {
+    #[account(
+        mut,
+        seeds = [b"listing", nft_mint.key().as_ref()],
+        bump = listing.bump
+    )]
+    pub listing: Account<'info, Listing>,
+    pub seller: Signer<'info>,
+    pub nft_mint: Account<'info, Mint>,
 }
 
 #[account]
@@ -333,4 +417,10 @@ pub enum ErrorCode {
     InvalidTokenOwner,
     #[msg("Arithmetic overflow")]
     ArithmeticOverflow,
+    #[msg("Invalid fee percentage - must be <= 1000 (10%)")]
+    InvalidFeePercentage,
+    #[msg("Invalid seller account")]
+    InvalidSeller,
+    #[msg("Invalid admin account")]
+    InvalidAdmin,
 }
