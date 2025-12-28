@@ -7,7 +7,7 @@ import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { Button, Card, CardContent, Badge } from "@/components/retroui";
 import { NFTCard, NFTGrid } from "@/components/nft";
 import { useListings } from "@/hooks/useListings";
-import { ArrowRight, Wallet, ShoppingBag, Tag, Zap } from "lucide-react";
+import { ArrowRight, Wallet, ShoppingBag, Tag } from "lucide-react";
 
 export default function HomePage() {
   const { connected } = useWallet();

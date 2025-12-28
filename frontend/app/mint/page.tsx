@@ -9,13 +9,6 @@ import { Button, Card, CardContent, Input, Badge } from "@/components/retroui";
 import { Wallet, Sparkles, ArrowLeft, ExternalLink } from "lucide-react";
 import Link from "next/link";
 
-// Sample placeholder images for quick minting
-const PLACEHOLDER_IMAGES = [
-  "https://arweave.net/placeholder1",
-  "https://arweave.net/placeholder2", 
-  "https://arweave.net/placeholder3",
-];
-
 export default function MintPage() {
   const router = useRouter();
   const { connected, publicKey } = useWallet();

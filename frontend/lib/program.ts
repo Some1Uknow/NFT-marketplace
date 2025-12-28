@@ -235,7 +235,9 @@ export async function listNft(
   // Find or initialize the marketplace
   let mpInfo = await findMarketplaceForListing(program, nftMint);
   if (!mpInfo) {
-    console.log("No marketplace found, initializing...");
+    if (process.env.NODE_ENV === "development") {
+      console.log("No marketplace found, initializing...");
+    }
     try {
       await initializeMarketplace(program);
       // Fetch the newly created marketplace
@@ -243,9 +245,10 @@ export async function listNft(
       if (!mpInfo) {
         throw new Error("Failed to initialize marketplace");
       }
-      console.log("Marketplace initialized successfully");
     } catch (error) {
-      console.error("Error initializing marketplace:", error);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Error initializing marketplace:", error);
+      }
       throw new Error("Failed to initialize marketplace. Please try again.");
     }
   }
@@ -374,7 +377,6 @@ export async function fetchNFTMetadataFromChain(
     const metadataAccount = await connection.getAccountInfo(metadataPDA);
     
     if (!metadataAccount) {
-      console.log(`No metadata account found for ${mint.toString()}`);
       return undefined;
     }
 
@@ -411,8 +413,6 @@ export async function fetchNFTMetadataFromChain(
     const uriBytes = data.slice(offset, offset + uriLength);
     const uri = uriBytes.toString('utf8').replace(/\0/g, '').trim();
     
-    console.log(`Fetched on-chain metadata for ${mint.toString()}:`, { name, symbol, uri });
-    
     // If URI is a data URI, parse it directly
     if (uri.startsWith('data:application/json')) {
       try {
@@ -435,29 +435,38 @@ export async function fetchNFTMetadataFromChain(
       // Try to fetch external metadata JSON
       try {
         const response = await fetch(uri);
+        
+        if (!response.ok) {
+          console.error(`Failed to fetch metadata: ${response.status} ${response.statusText}`);
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
         const contentType = response.headers.get('content-type');
         
-        // Check if it's JSON
-        if (contentType && contentType.includes('application/json')) {
-          const metadata = await response.json();
+        // Try to parse as JSON first (Irys returns application/octet-stream for JSON)
+        const text = await response.text();
+        
+        try {
+          const metadata = JSON.parse(text);
           
-          return {
-            name: metadata.name || name,
-            symbol: metadata.symbol || symbol,
-            description: metadata.description || '',
-            image: metadata.image || PLACEHOLDER_IMAGE,
-            attributes: metadata.attributes || [],
-            collection: metadata.collection,
-          };
-        } else {
-          // URI points to an image directly (common mistake)
-          // Use the URI as the image and return basic metadata
-          console.warn(`URI points to non-JSON content (${contentType}), treating as direct image URL`);
+          // If it parses as JSON, it's metadata
+          if (metadata && typeof metadata === 'object') {
+            return {
+              name: metadata.name || name,
+              symbol: metadata.symbol || symbol,
+              description: metadata.description || '',
+              image: metadata.image || PLACEHOLDER_IMAGE,
+              attributes: metadata.attributes || [],
+              collection: metadata.collection,
+            };
+          }
+        } catch (jsonErr) {
+          // Not JSON, treat as direct image URL
           return {
             name,
             symbol,
             description: '',
-            image: uri, // Use the URI directly as image
+            image: uri,
           };
         }
       } catch (err) {

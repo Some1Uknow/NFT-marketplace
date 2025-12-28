@@ -3,11 +3,9 @@ import { PublicKey } from "@solana/web3.js";
 // Program ID from the deployed Solana program
 export const PROGRAM_ID = new PublicKey("DHpGDWHEo3ubcRBcuDBaMR3KDYGH1j9rcSsYxcMsqzA9");
 
-// Marketplace admin public key (update this with your wallet)
-export const MARKETPLACE_ADMIN = new PublicKey("11111111111111111111111111111111"); // Replace with actual admin
-
 // RPC endpoints
 export const RPC_ENDPOINT = process.env.NEXT_PUBLIC_RPC_ENDPOINT || "https://api.devnet.solana.com";
+export const SOLANA_NETWORK = (process.env.NEXT_PUBLIC_SOLANA_NETWORK || "devnet") as "devnet" | "mainnet-beta" | "testnet";
 
 // Fee percentage (in basis points, e.g., 250 = 2.5%)
 export const MARKETPLACE_FEE_BPS = 250;

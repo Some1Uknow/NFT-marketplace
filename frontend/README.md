@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NFT Marketplace - Frontend
+
+A modern NFT marketplace built on Solana with Next.js 16 and TypeScript.
+
+## Features
+
+- 🎨 Mint NFTs with metadata stored on Arweave via Irys
+- 🏪 List NFTs for sale on the marketplace
+- 💰 Buy and sell NFTs with SOL
+- 👛 Solana wallet integration (Phantom, Solflare, etc.)
+- 🔍 Browse and explore NFT collections
+- 📱 Responsive retro pixel art design
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (Turbopack)
+- **Language**: TypeScript
+- **Blockchain**: Solana (Anchor framework)
+- **Storage**: Arweave (via Irys)
+- **Wallet**: Solana Wallet Adapter
+- **Metadata**: Metaplex Token Metadata
+- **Styling**: Tailwind CSS
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install Dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Environment Setup
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.local.example` to `.env.local` and configure:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```env
+NEXT_PUBLIC_RPC_ENDPOINT=https://api.devnet.solana.com
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+```
 
-## Learn More
+For production, use a paid RPC provider like Helius or QuickNode.
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Run Development Server
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Open [http://localhost:3000](http://localhost:3000) with your browser.
 
-## Deploy on Vercel
+### 4. Build for Production
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+pnpm build
+pnpm start
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+- `app/` - Next.js app directory (pages and layouts)
+- `components/` - Reusable React components
+- `hooks/` - Custom React hooks for blockchain interactions
+- `lib/` - Utilities and Solana program interface
+- `providers/` - Context providers (Wallet, etc.)
+
+## Key Features
+
+### Minting NFTs
+- Upload metadata to Arweave via Irys
+- Create Metaplex-compatible NFTs
+- Automatic wallet token account creation
+
+### Marketplace
+- List NFTs with custom pricing
+- Browse all listings
+- Buy NFTs with SOL
+- Cancel listings
+
+### Wallet Management
+- Multi-wallet support (Phantom, Solflare, etc.)
+- View balance and transaction history
+- Send SOL to other addresses
+
+## Configuration
+
+Update `lib/constants.ts` for:
+- Program ID (from deployed Solana program)
+- RPC endpoint
+- Network configuration
+
+## Deployment
+
+Deploy to Vercel with one click:
+1. Push to GitHub
+2. Import in Vercel
+3. Add environment variables
+4. Deploy
